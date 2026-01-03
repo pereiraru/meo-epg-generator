@@ -1,0 +1,44 @@
+name: Test MEO EPG Generation
+
+on:
+  workflow_dispatch:
+
+  jobs:
+    test-epg:
+        runs-on: ubuntu-latest
+
+                steps:
+                      - name: Checkout code
+                              uses: actions/checkout@v3
+
+                                            - name: Set up Python
+                                                    uses: actions/setup-python@v4
+                                                            with:
+                                                                      python-version: '3.11'
+
+                                                                                      - name: Install dependencies
+                                                                                              run: |
+                                                                                                        python -m pip install --upgrade pip
+                                                                                                                  pip install requests beautifulsoup4 lxml python-dateutil
+                                                                                                                            
+                                                                                                                                  - name: Run EPG Generator
+                                                                                                                                          run: python scraper.py
+                                                                                                                                                  
+                                                                                                                                                        - name: List generated files
+                                                                                                                                                                run: |
+                                                                                                                                                                          echo "=== Files in workspace ==="
+                                                                                                                                                                                    ls -lah
+                                                                                                                                                                                              echo ""
+                                                                                                                                                                                                        echo "=== Content of guide.xml (first 100 lines) ==="
+                                                                                                                                                                                                                  head -100 guide.xml || echo "File not found"
+                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                  - name: Verify XML structure
+                                                                                                                                                                                                                                          run: |
+                                                                                                                                                                                                                                                    if [ -f guide.xml ]; then
+                                                                                                                                                                                                                                                                echo "✓ guide.xml generated successfully"
+                                                                                                                                                                                                                                                                            wc -l guide.xml
+                                                                                                                                                                                                                                                                                        grep -c "<channel" guide.xml || echo "No channels found"
+                                                                                                                                                                                                                                                                                                  else
+                                                                                                                                                                                                                                                                                                              echo "✗ guide.xml not found"
+                                                                                                                                                                                                                                                                                                                          exit 1
+                                                                                                                                                                                                                                                                                                                                    fi
