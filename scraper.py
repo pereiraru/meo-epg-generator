@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-MEO EPG Generator for UHF App
-Generates XMLTV format EPG from MEO Portugal TV guide
+NOS EPG Generator for UHF App
+Generates XMLTV format EPG from NOS Portugal TV guide
 """
 
+import urllib.request
+import json
+import ssl
 from datetime import datetime, timedelta
 from xml.etree.ElementTree import Element, SubElement, ElementTree
 import logging
+import sys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,254 +18,273 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class MEOEPGGenerator:
-    """Generate XMLTV EPG from MEO Portugal"""
+class NOSEPGGenerator:
+    """Generate XMLTV EPG from NOS Portugal"""
 
-    # Complete mapping of MEO TV channels
-    CHANNEL_MAP = {
-        'RTP1': {'name': 'RTP 1', 'number': 1, 'icon': 'https://www.meo.pt/PublishingImages/rtp1.png'},
-        'RTP2': {'name': 'RTP 2', 'number': 2, 'icon': 'https://www.meo.pt/PublishingImages/rtp2.png'},
-        'SIC': {'name': 'SIC', 'number': 3, 'icon': 'https://www.meo.pt/PublishingImages/sic.png'},
-        'TVI': {'name': 'TVI', 'number': 4, 'icon': 'https://www.meo.pt/PublishingImages/tvi.png'},
-        'SICNOT': {'name': 'SIC Notícias', 'number': 5, 'icon': 'https://www.meo.pt/PublishingImages/sicnoticias.png'},
-        'RTPNOT': {'name': 'RTP Notícias', 'number': 6, 'icon': 'https://www.meo.pt/PublishingImages/rtpnoticias.png'},
-        'CNN': {'name': 'CNN Portugal', 'number': 7, 'icon': 'https://www.meo.pt/PublishingImages/cnn.png'},
-        'TVICNN': {'name': 'TVI Reality', 'number': 8, 'icon': 'https://www.meo.pt/PublishingImages/tvireality.png'},
-        'ARTP': {'name': 'RTP Açores', 'number': 10, 'icon': 'https://www.meo.pt/PublishingImages/rtpacores.png'},
-        'MRTP': {'name': 'RTP Madeira', 'number': 11, 'icon': 'https://www.meo.pt/PublishingImages/rtpmadeira.png'},
-        'RTPI': {'name': 'RTP Internacional', 'number': 12, 'icon': 'https://www.meo.pt/PublishingImages/rtpinternacional.png'},
-        'RTP3': {'name': 'RTP 3', 'number': 13, 'icon': 'https://www.meo.pt/PublishingImages/rtp3.png'},
-        'SIC': {'name': 'SIC', 'number': 15, 'icon': 'https://www.meo.pt/PublishingImages/sic.png'},
-        'TVI': {'name': 'TVI', 'number': 16, 'icon': 'https://www.meo.pt/PublishingImages/tvi.png'},
-        'RTPMEM': {'name': 'RTP Memória', 'number': 18, 'icon': 'https://www.meo.pt/PublishingImages/rtpmemoria.png'},
-        'TVIInt': {'name': 'TVI Internacional', 'number': 20, 'icon': 'https://www.meo.pt/PublishingImages/tviinternacional.png'},
-        'ARTV': {'name': 'ARTV', 'number': 30, 'icon': 'https://www.meo.pt/PublishingImages/artv.png'},
-        'PORTOCANAL': {'name': 'Porto Canal', 'number': 35, 'icon': 'https://www.meo.pt/PublishingImages/portocanal.png'},
-        'EURON': {'name': 'Euronews', 'number': 40, 'icon': 'https://www.meo.pt/PublishingImages/euronews.png'},
-        'CART': {'name': 'Cartoon Network', 'number': 41, 'icon': 'https://www.meo.pt/PublishingImages/cartoon.png'},
-        'PANDA': {'name': 'Canal Panda', 'number': 42, 'icon': 'https://www.meo.pt/PublishingImages/canalpanda.png'},
-        'DISNEY': {'name': 'Disney Channel', 'number': 43, 'icon': 'https://www.meo.pt/PublishingImages/disney.png'},
-        'NICKJR': {'name': 'Nick Jr.', 'number': 44, 'icon': 'https://www.meo.pt/PublishingImages/nickjr.png'},
-        'NICK': {'name': 'Nickelodeon', 'number': 45, 'icon': 'https://www.meo.pt/PublishingImages/nickelodeon.png'},
-        'DISNEY': {'name': 'Disney Junior', 'number': 46, 'icon': 'https://www.meo.pt/PublishingImages/disneyjunior.png'},
-        'BABYTV': {'name': 'Baby TV', 'number': 47, 'icon': 'https://www.meo.pt/PublishingImages/babytv.png'},
-        'JIMJAM': {'name': 'Jim Jam', 'number': 48, 'icon': 'https://www.meo.pt/PublishingImages/jimjam.png'},
-        'BLAST': {'name': 'BLAST', 'number': 49, 'icon': 'https://www.meo.pt/PublishingImages/blast.png'},
-        'SPORT': {'name': 'Sport TV 1', 'number': 50, 'icon': 'https://www.meo.pt/PublishingImages/sporttv1.png'},
-        'SPORT2': {'name': 'Sport TV 2', 'number': 51, 'icon': 'https://www.meo.pt/PublishingImages/sporttv2.png'},
-        'SPORT3': {'name': 'Sport TV 3', 'number': 52, 'icon': 'https://www.meo.pt/PublishingImages/sporttv3.png'},
-        'SPORT4': {'name': 'Sport TV 4', 'number': 53, 'icon': 'https://www.meo.pt/PublishingImages/sporttv4.png'},
-        'SPORT5': {'name': 'Sport TV 5', 'number': 54, 'icon': 'https://www.meo.pt/PublishingImages/sporttv5.png'},
-        'SPORT6': {'name': 'Sport TV 6', 'number': 55, 'icon': 'https://www.meo.pt/PublishingImages/sporttv6.png'},
-        'BENFICA': {'name': 'Benfica TV', 'number': 56, 'icon': 'https://www.meo.pt/PublishingImages/benficatv.png'},
-        'SPORTING': {'name': 'Sporting TV', 'number': 57, 'icon': 'https://www.meo.pt/PublishingImages/sportingtv.png'},
-        'ELEV': {'name': 'Eleven Sports 1', 'number': 58, 'icon': 'https://www.meo.pt/PublishingImages/eleven1.png'},
-        'ELEV2': {'name': 'Eleven Sports 2', 'number': 59, 'icon': 'https://www.meo.pt/PublishingImages/eleven2.png'},
-        'DAZN': {'name': 'DAZN', 'number': 60, 'icon': 'https://www.meo.pt/PublishingImages/dazn.png'},
-        'HOLHD': {'name': 'Hollywood', 'number': 61, 'icon': 'https://www.meo.pt/PublishingImages/hollywood.png'},
-        'FOXMOVHD': {'name': 'FOX Movies', 'number': 62, 'icon': 'https://www.meo.pt/PublishingImages/foxmovies.png'},
-        'AMCHD': {'name': 'AMC', 'number': 63, 'icon': 'https://www.meo.pt/PublishingImages/amc.png'},
-        'AXN': {'name': 'AXN', 'number': 70, 'icon': 'https://www.meo.pt/PublishingImages/axn.png'},
-        'AXNW': {'name': 'AXN White', 'number': 71, 'icon': 'https://www.meo.pt/PublishingImages/axnwhite.png'},
-        'AXNMOVIES': {'name': 'AXN Movies', 'number': 72, 'icon': 'https://www.meo.pt/PublishingImages/axnmovies.png'},
-        'FOX': {'name': 'FOX', 'number': 73, 'icon': 'https://www.meo.pt/PublishingImages/fox.png'},
-        'FOXLIFE': {'name': 'FOX Life', 'number': 74, 'icon': 'https://www.meo.pt/PublishingImages/foxlife.png'},
-        'FOXCRIME': {'name': 'FOX Crime', 'number': 75, 'icon': 'https://www.meo.pt/PublishingImages/foxcrime.png'},
-        'FOXCOMEDY': {'name': 'FOX Comedy', 'number': 76, 'icon': 'https://www.meo.pt/PublishingImages/foxcomedy.png'},
-        'COSMO': {'name': 'Cosmopolitan', 'number': 77, 'icon': 'https://www.meo.pt/PublishingImages/cosmopolitan.png'},
-        'E': {'name': 'E! Entertainment', 'number': 78, 'icon': 'https://www.meo.pt/PublishingImages/eentertainment.png'},
-        'TVS': {'name': 'TV Série', 'number': 79, 'icon': 'https://www.meo.pt/PublishingImages/tvserie.png'},
-        'CINEMUNDO': {'name': 'Cinemundo', 'number': 80, 'icon': 'https://www.meo.pt/PublishingImages/cinemundo.png'},
-        'SYFY': {'name': 'SyFy', 'number': 81, 'icon': 'https://www.meo.pt/PublishingImages/syfy.png'},
-        'DISC': {'name': 'Discovery Channel', 'number': 90, 'icon': 'https://www.meo.pt/PublishingImages/discovery.png'},
-        'NATGEO': {'name': 'National Geographic', 'number': 91, 'icon': 'https://www.meo.pt/PublishingImages/natgeo.png'},
-        'NATGEOWILD': {'name': 'Nat Geo Wild', 'number': 92, 'icon': 'https://www.meo.pt/PublishingImages/natgeowild.png'},
-        'HIST': {'name': 'History Channel', 'number': 93, 'icon': 'https://www.meo.pt/PublishingImages/history.png'},
-        'ODISSEIA': {'name': 'Odisseia', 'number': 94, 'icon': 'https://www.meo.pt/PublishingImages/odisseia.png'},
-        'CACAV': {'name': 'Caça e Pesca', 'number': 95, 'icon': 'https://www.meo.pt/PublishingImages/cacaepesca.png'},
-        'TRAV': {'name': 'Travel Channel', 'number': 96, 'icon': 'https://www.meo.pt/PublishingImages/travel.png'},
-        'CRIME': {'name': 'Crime + Investigation', 'number': 97, 'icon': 'https://www.meo.pt/PublishingImages/crime.png'},
-        '24KIT': {'name': '24 Kitchen', 'number': 100, 'icon': 'https://www.meo.pt/PublishingImages/24kitchen.png'},
-        'TVCINE1': {'name': 'TVCine Top', 'number': 105, 'icon': 'https://www.meo.pt/PublishingImages/tvcinetop.png'},
-        'TVCINE2': {'name': 'TVCine Edition', 'number': 106, 'icon': 'https://www.meo.pt/PublishingImages/tvcineedition.png'},
-        'TVCINE3': {'name': 'TVCine Emotion', 'number': 107, 'icon': 'https://www.meo.pt/PublishingImages/tvcineemotion.png'},
-        'TVCINE4': {'name': 'TVCine Action', 'number': 108, 'icon': 'https://www.meo.pt/PublishingImages/tvcineaction.png'},
-        'AMCBRE': {'name': 'AMC Break', 'number': 109, 'icon': 'https://www.meo.pt/PublishingImages/amcbreak.png'},
-        'VH1': {'name': 'VH1', 'number': 111, 'icon': 'https://www.meo.pt/PublishingImages/vh1.png'},
-        'MTV': {'name': 'MTV Portugal', 'number': 112, 'icon': 'https://www.meo.pt/PublishingImages/mtv.png'},
-        'MCM': {'name': 'MCM Pop', 'number': 113, 'icon': 'https://www.meo.pt/PublishingImages/mcm.png'},
-        'AFROMU': {'name': 'Afro Music', 'number': 114, 'icon': 'https://www.meo.pt/PublishingImages/afromusic.png'},
-        'MEZZO': {'name': 'Mezzo', 'number': 115, 'icon': 'https://www.meo.pt/PublishingImages/mezzo.png'},
-        'FUEL': {'name': 'Fuel TV', 'number': 120, 'icon': 'https://www.meo.pt/PublishingImages/fueltv.png'},
-        'MOTORS': {'name': 'Motors TV', 'number': 121, 'icon': 'https://www.meo.pt/PublishingImages/motorstv.png'},
-        'CASACOZ': {'name': 'Casa e Cozinha', 'number': 122, 'icon': 'https://www.meo.pt/PublishingImages/casaecozinha.png'},
-        'FASHIONTV': {'name': 'Fashion TV', 'number': 123, 'icon': 'https://www.meo.pt/PublishingImages/fashiontv.png'},
-        'LUXE': {'name': 'Luxe TV', 'number': 124, 'icon': 'https://www.meo.pt/PublishingImages/luxetv.png'},
-        'TOROS': {'name': 'Toros TV', 'number': 125, 'icon': 'https://www.meo.pt/PublishingImages/torostv.png'},
-        'FINE': {'name': 'Fine Living', 'number': 126, 'icon': 'https://www.meo.pt/PublishingImages/fineliving.png'},
+    # NOS API Configuration
+    API_BASE = 'https://api.clg.nos.pt/nostv/ott'
+    CLIENT_ID = 'xe1dgrShwdR1DVOKGmsj8Ut4QLlGyOFI'
+    HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'x-apikey': CLIENT_ID,
+        'X-Core-DeviceType': 'WEB',
+        'Origin': 'https://nostv.pt',
+        'Referer': 'https://nostv.pt/'
     }
 
     def __init__(self, days=7):
         self.days = days
         self.channels = {}
         self.programs = {}
+        # Create SSL context that doesn't verify certificates
+        self.ssl_context = ssl.create_default_context()
+        self.ssl_context.check_hostname = False
+        self.ssl_context.verify_mode = ssl.CERT_NONE
+
+    def _indent(self, elem, level=0):
+        """Add indentation to XML for pretty printing (compatible with Python < 3.9)"""
+        i = "\n" + level * "  "
+        if len(elem):
+            if not elem.text or not elem.text.strip():
+                elem.text = i + "  "
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = i
+            for child in elem:
+                self._indent(child, level + 1)
+            if not child.tail or not child.tail.strip():
+                child.tail = i
+        else:
+            if level and (not elem.tail or not elem.tail.strip()):
+                elem.tail = i
+
+    def _make_request(self, url):
+        """Make HTTP request to NOS API"""
+        try:
+            req = urllib.request.Request(url, headers=self.HEADERS)
+            with urllib.request.urlopen(req, context=self.ssl_context) as response:
+                return json.loads(response.read())
+        except Exception as e:
+            logger.error(f'Request failed for {url}: {e}')
+            return None
 
     def fetch_channels(self):
-        """Load channels from CHANNEL_MAP"""
-        logger.info("Loading channels from CHANNEL_MAP...")
+        """Fetch channels from NOS API"""
+        logger.info('Fetching channels from NOS API...')
+        url = f'{self.API_BASE}/channels/guest?client_id={self.CLIENT_ID}'
 
-        for channel_id, channel_info in self.CHANNEL_MAP.items():
-            self.channels[channel_id] = {
-                'id': channel_id,
-                'name': channel_info.get('name', channel_id),
-                'number': channel_info.get('number', 0),
-                'icon': channel_info.get('icon', ''),
+        channels_data = self._make_request(url)
+        if not channels_data:
+            logger.error('Failed to fetch channels')
+            return False
+
+        for channel in channels_data:
+            channel_id = str(channel.get('ChannelId', ''))
+            service_id = str(channel.get('ServiceId', ''))
+            if not service_id:
+                continue
+
+            # Get channel icon
+            icon_url = ''
+            images = channel.get('Images', [])
+            for img in images:
+                if img.get('Type') == 16:  # Channel icon type
+                    icon_url = img.get('Url', '')
+                    break
+
+            self.channels[service_id] = {
+                'id': service_id,
+                'channel_id': channel_id,
+                'name': channel.get('Name', ''),
+                'number': channel.get('Position', 0),
+                'icon': icon_url,
             }
 
-        logger.info(f"Loaded {len(self.channels)} channels")
+        logger.info(f'Found {len(self.channels)} channels')
         return len(self.channels) > 0
 
     def fetch_schedule(self):
-        """Generate placeholder schedule data"""
-        logger.info(f"Generating placeholder schedule for {self.days} days...")
+        """Fetch EPG schedule for all channels"""
+        logger.info(f'Fetching {self.days} days of schedule...')
 
-        # Note: Since MEO's website now requires authentication and is fully JavaScript-rendered,
-        # we generate a minimal valid EPG structure. Users can still see the channel list.
-        # In the future, this could be enhanced with an authenticated API approach.
+        # Get channel IDs as comma-separated string
+        channel_ids = ','.join(self.channels.keys())
 
         for day_offset in range(self.days):
             date = datetime.now() + timedelta(days=day_offset)
-            date_str = date.strftime('%Y-%m-%d')
+            min_date = date.replace(hour=0, minute=0, second=0, microsecond=0)
+            max_date = date.replace(hour=23, minute=59, second=59, microsecond=0)
 
-            for channel_id in self.channels.keys():
-                # Create a placeholder program for each channel/day
-                # This ensures the EPG is valid even without actual program data
-                prog_key = f"{date_str}_{channel_id}_placeholder"
-                self.programs[prog_key] = {
-                    'date': date_str,
-                    'channel': channel_id,
-                    'title': f'Ver {self.channels[channel_id]["name"]}',
-                    'time': '00:00',
-                    'description': 'Consulte a programação em www.meo.pt'
+            # Format dates for API
+            min_date_str = min_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+            max_date_str = max_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+            url = (f'{self.API_BASE}/schedule/range/contents/guest?'
+                   f'channels={channel_ids}&'
+                   f'minDate={min_date_str}&'
+                   f'maxDate={max_date_str}&'
+                   f'isDateInclusive=true&'
+                   f'client_id={self.CLIENT_ID}')
+
+            logger.info(f'Fetching day {day_offset + 1}/{self.days} ({min_date.strftime("%Y-%m-%d")})')
+
+            schedule_data = self._make_request(url)
+            if not schedule_data:
+                logger.warning(f'Failed to fetch schedule for day {day_offset + 1}')
+                continue
+
+            # Process programs
+            for program in schedule_data:
+                program_id = program.get('CoreId', '')
+                if not program_id:
+                    continue
+
+                # Get channel info
+                airing_channel = program.get('AiringChannel', {})
+                service_id = str(airing_channel.get('ServiceId', ''))
+                if service_id not in self.channels:
+                    continue
+
+                # Get program metadata
+                metadata = program.get('Metadata', {})
+
+                # Parse start and end times
+                start_time = program.get('UtcDateTimeStart', '')
+                end_time = program.get('UtcDateTimeEnd', '')
+
+                if not start_time or not end_time:
+                    continue
+
+                # Get program description
+                title = metadata.get('Title', 'Unknown')
+                subtitle = metadata.get('SubTitle', '')
+                description = metadata.get('Description', '')
+
+                # Combine title and subtitle if available
+                full_title = title
+                if subtitle:
+                    full_title = f'{title} - {subtitle}'
+
+                # Build program info
+                self.programs[program_id] = {
+                    'channel': service_id,
+                    'start': start_time,
+                    'stop': end_time,
+                    'title': title,
+                    'subtitle': subtitle,
+                    'description': description,
+                    'genre': metadata.get('GenreDisplay', ''),
+                    'season': metadata.get('Season'),
+                    'episode': metadata.get('Episode'),
+                    'year': metadata.get('ReleaseYear', ''),
+                    'rating': metadata.get('RatingDisplay', ''),
                 }
 
-        logger.info(f"Generated {len(self.programs)} placeholder programs")
+            logger.info(f'  Added {len([p for p in self.programs.values() if p["start"].startswith(min_date.strftime("%Y-%m-%d"))])} programs')
+
+        logger.info(f'Total programs fetched: {len(self.programs)}')
         return True
 
     def generate_xmltv(self):
         """Generate XMLTV format EPG"""
-        logger.info("Generating XMLTV...")
+        logger.info('Generating XMLTV...')
 
+        # Create root element
         tv = Element('tv')
-        tv.set('generator-info-name', 'MEO EPG Generator')
+        tv.set('generator-info-name', 'NOS EPG Generator')
         tv.set('generator-info-url', 'https://github.com/pereiraru/meo-epg-generator')
 
         # Add channels
-        for channel_id, channel_data in sorted(self.channels.items(), key=lambda x: x[1].get('number', 999)):
-            channel_elem = SubElement(tv, 'channel')
-            channel_elem.set('id', channel_id)
+        for channel_id, channel_info in sorted(self.channels.items(), key=lambda x: x[1]['number']):
+            channel = SubElement(tv, 'channel')
+            channel.set('id', channel_id)
 
-            display_name = SubElement(channel_elem, 'display-name')
-            display_name.set('lang', 'pt')
-            display_name.text = channel_data.get('name', channel_id)
+            display_name = SubElement(channel, 'display-name')
+            display_name.text = channel_info['name']
 
-            # Add channel number if available
-            if channel_data.get('number'):
-                display_name_num = SubElement(channel_elem, 'display-name')
-                display_name_num.set('lang', 'pt')
-                display_name_num.text = str(channel_data['number'])
+            display_name_num = SubElement(channel, 'display-name')
+            display_name_num.text = str(channel_info['number'])
 
-            # Add icon if available
-            if channel_data.get('icon'):
-                icon = SubElement(channel_elem, 'icon')
-                icon.set('src', channel_data['icon'])
+            if channel_info['icon']:
+                icon = SubElement(channel, 'icon')
+                icon.set('src', channel_info['icon'])
 
         # Add programs
-        for prog_id, prog_data in sorted(self.programs.items()):
-            try:
-                channel_id = prog_data['channel']
-                if channel_id not in self.channels:
-                    continue
+        for program_id, prog_info in sorted(self.programs.items(), key=lambda x: (x[1]['channel'], x[1]['start'])):
+            programme = SubElement(tv, 'programme')
 
-                # Parse datetime
-                date_str = prog_data['date']
-                time_str = prog_data.get('time', '00:00')
+            # Convert ISO format to XMLTV format (YYYYMMDDHHmmss +0000)
+            start_dt = datetime.fromisoformat(prog_info['start'].replace('Z', '+00:00'))
+            stop_dt = datetime.fromisoformat(prog_info['stop'].replace('Z', '+00:00'))
 
-                # Format as YYYYMMDDHHMMSS +0000
-                try:
-                    start_dt = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M')
-                except:
-                    start_dt = datetime.strptime(date_str, '%Y-%m-%d')
+            programme.set('start', start_dt.strftime('%Y%m%d%H%M%S +0000'))
+            programme.set('stop', stop_dt.strftime('%Y%m%d%H%M%S +0000'))
+            programme.set('channel', prog_info['channel'])
 
-                # Set program duration to full day for placeholder programs
-                end_dt = start_dt + timedelta(hours=24)
+            title = SubElement(programme, 'title')
+            title.set('lang', 'pt')
+            title.text = prog_info['title']
 
-                prog_elem = SubElement(tv, 'programme')
-                prog_elem.set('start', start_dt.strftime('%Y%m%d%H%M%S +0000'))
-                prog_elem.set('stop', end_dt.strftime('%Y%m%d%H%M%S +0000'))
-                prog_elem.set('channel', channel_id)
+            if prog_info['subtitle']:
+                sub_title = SubElement(programme, 'sub-title')
+                sub_title.set('lang', 'pt')
+                sub_title.text = prog_info['subtitle']
 
-                title = SubElement(prog_elem, 'title')
-                title.set('lang', 'pt')
-                title.text = prog_data.get('title', 'Unknown Program')
+            if prog_info['description']:
+                desc = SubElement(programme, 'desc')
+                desc.set('lang', 'pt')
+                desc.text = prog_info['description']
 
-                if prog_data.get('description'):
-                    desc = SubElement(prog_elem, 'desc')
-                    desc.set('lang', 'pt')
-                    desc.text = prog_data['description']
+            if prog_info['genre']:
+                category = SubElement(programme, 'category')
+                category.set('lang', 'pt')
+                category.text = prog_info['genre']
 
-            except Exception as e:
-                logger.debug(f"Error creating programme element: {e}")
+            if prog_info['year']:
+                date = SubElement(programme, 'date')
+                date.text = str(prog_info['year'])
+
+            if prog_info['season'] is not None and prog_info['episode'] is not None:
+                episode_num = SubElement(programme, 'episode-num')
+                episode_num.set('system', 'xmltv_ns')
+                # XMLTV episode numbering: season.episode.part (all 0-indexed)
+                episode_num.text = f'{prog_info["season"] - 1}.{prog_info["episode"] - 1}.'
+
+            if prog_info['rating']:
+                rating = SubElement(programme, 'rating')
+                value = SubElement(rating, 'value')
+                value.text = prog_info['rating']
+
+        # Pretty print
+        self._indent(tv)
 
         return ElementTree(tv)
 
-    def save(self, filename='guide.xml'):
-        """Save EPG to file"""
-        logger.info(f"Saving EPG to {filename}...")
-        try:
-            xmltree = self.generate_xmltv()
-            xmltree.write(
-                filename,
-                encoding='UTF-8',
-                xml_declaration=True
-            )
-            logger.info(f"EPG saved successfully to {filename}")
-            return True
-        except Exception as e:
-            logger.error(f"Error saving EPG: {e}")
+    def save_xmltv(self, filename='guide.xml'):
+        """Save XMLTV to file"""
+        logger.info(f'Saving XMLTV to {filename}...')
+        tree = self.generate_xmltv()
+        tree.write(filename, encoding='utf-8', xml_declaration=True)
+        logger.info(f'Successfully saved {filename}')
+
+    def run(self):
+        """Run the EPG generator"""
+        logger.info('Starting NOS EPG Generator')
+
+        if not self.fetch_channels():
+            logger.error('Failed to fetch channels')
             return False
 
+        if not self.fetch_schedule():
+            logger.error('Failed to fetch schedule')
+            return False
 
-def main():
-    """Main entry point"""
-    logger.info("Starting MEO EPG Generator")
-    logger.info("Note: MEO website now requires authentication. Generating EPG with channel list only.")
-
-    try:
-        generator = MEOEPGGenerator(days=7)
-
-        # Load channels
-        if not generator.fetch_channels():
-            logger.error("Failed to load channels")
-            return 1
-
-        # Generate schedule
-        if not generator.fetch_schedule():
-            logger.warning("Some issues while generating schedule, but continuing...")
-
-        # Save EPG
-        if not generator.save('guide.xml'):
-            logger.error("Failed to save EPG")
-            return 1
-
-        logger.info("MEO EPG Generator completed successfully")
-        logger.info(f"Generated EPG with {len(generator.channels)} channels for {generator.days} days")
-        return 0
-
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
-        return 1
+        self.save_xmltv()
+        logger.info('EPG generation complete!')
+        return True
 
 
 if __name__ == '__main__':
-    exit(main())
+    generator = NOSEPGGenerator(days=7)
+    success = generator.run()
+    exit(0 if success else 1)
