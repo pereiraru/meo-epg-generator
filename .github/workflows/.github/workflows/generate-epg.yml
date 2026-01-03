@@ -1,0 +1,36 @@
+name: Generate MEO EPG
+
+on:
+  schedule:
+      # Run daily at 02:00 UTC
+          - cron: '0 2 * * *'
+            workflow_dispatch:  # Allow manual trigger
+
+            jobs:
+              generate-epg:
+                  runs-on: ubuntu-latest
+
+                          steps:
+                                - name: Checkout repository
+                                        uses: actions/checkout@v3
+
+                                                      - name: Set up Python
+                                                              uses: actions/setup-python@v4
+                                                                      with:
+                                                                                python-version: '3.11'
+
+                                                                                                - name: Install dependencies
+                                                                                                        run: |
+                                                                                                                  python -m pip install --upgrade pip
+                                                                                                                            pip install -r requirements.txt
+                                                                                                                                      
+                                                                                                                                            - name: Generate EPG
+                                                                                                                                                    run: python scraper.py
+                                                                                                                                                            
+                                                                                                                                                                  - name: Commit and push changes
+                                                                                                                                                                          run: |
+                                                                                                                                                                                    git config --local user.email "action@github.com"
+                                                                                                                                                                                              git config --local user.name "GitHub Action"
+                                                                                                                                                                                                        git add guide.xml
+                                                                                                                                                                                                                  git commit -m "Update EPG: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" || true
+                                                                                                                                                                                                                            git push
