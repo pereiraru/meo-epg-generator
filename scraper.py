@@ -252,7 +252,9 @@ class NOSEPGGenerator:
                 date = SubElement(programme, 'date')
                 date.text = str(prog_info['year'])
 
-            if prog_info['season'] is not None and prog_info['episode'] is not None:
+            # Only add episode info if both season and episode are valid (> 0)
+            if (prog_info['season'] is not None and prog_info['season'] > 0 and
+                prog_info['episode'] is not None and prog_info['episode'] > 0):
                 episode_num = SubElement(programme, 'episode-num')
                 episode_num.set('system', 'xmltv_ns')
                 # XMLTV episode numbering: season.episode.part (all 0-indexed)
@@ -269,10 +271,19 @@ class NOSEPGGenerator:
         return ElementTree(tv)
 
     def save_xmltv(self, filename='guide.xml'):
-        """Save XMLTV to file"""
+        """Save XMLTV to file with proper DOCTYPE"""
         logger.info(f'Saving XMLTV to {filename}...')
         tree = self.generate_xmltv()
-        tree.write(filename, encoding='utf-8', xml_declaration=True)
+
+        # Write with XML declaration and DOCTYPE
+        with open(filename, 'wb') as f:
+            # Write XML declaration
+            f.write(b'<?xml version="1.0" encoding="utf-8"?>\n')
+            # Write DOCTYPE declaration
+            f.write(b'<!DOCTYPE tv SYSTEM "xmltv.dtd">\n')
+            # Write the tree content (skip XML declaration since we already wrote it)
+            tree.write(f, encoding='utf-8', xml_declaration=False)
+
         logger.info(f'Successfully saved {filename}')
 
     def run(self):
