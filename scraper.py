@@ -24,6 +24,7 @@ class NOSEPGGenerator:
     # NOS API Configuration
     API_BASE = 'https://api.clg.nos.pt/nostv/ott'
     CLIENT_ID = 'xe1dgrShwdR1DVOKGmsj8Ut4QLlGyOFI'
+    ICON_BASE_URL = 'https://raw.githubusercontent.com/pereiraru/meo-epg-generator/main/channel_icons/'
     HEADERS = {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
         'Accept': 'application/json',
@@ -84,13 +85,19 @@ class NOSEPGGenerator:
             if not service_id:
                 continue
 
-            # Get channel icon
-            icon_url = ''
+            # Get channel icon filename and convert to GitHub URL
+            icon_filename = ''
             images = channel.get('Images', [])
             for img in images:
                 if img.get('Type') == 16:  # Channel icon type
-                    icon_url = img.get('Url', '')
+                    nos_url = img.get('Url', '')
+                    if nos_url:
+                        # Extract filename from NOS internal URL
+                        icon_filename = nos_url.split('/')[-1]
                     break
+
+            # Build GitHub raw URL for icon
+            icon_url = f'{self.ICON_BASE_URL}{icon_filename}' if icon_filename else f'{self.ICON_BASE_URL}placeholder.svg'
 
             self.channels[service_id] = {
                 'id': service_id,
@@ -98,6 +105,7 @@ class NOSEPGGenerator:
                 'name': channel.get('Name', ''),
                 'number': channel.get('Position', 0),
                 'icon': icon_url,
+                'icon_filename': icon_filename,
             }
 
         logger.info(f'Found {len(self.channels)} channels')
