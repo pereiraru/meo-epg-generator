@@ -271,18 +271,12 @@ class NOSEPGGenerator:
         return ElementTree(tv)
 
     def save_xmltv(self, filename='guide.xml'):
-        """Save XMLTV to file with proper DOCTYPE"""
+        """Save XMLTV to file"""
         logger.info(f'Saving XMLTV to {filename}...')
         tree = self.generate_xmltv()
 
-        # Write with XML declaration and DOCTYPE
-        with open(filename, 'wb') as f:
-            # Write XML declaration
-            f.write(b'<?xml version="1.0" encoding="utf-8"?>\n')
-            # Write DOCTYPE declaration
-            f.write(b'<!DOCTYPE tv SYSTEM "xmltv.dtd">\n')
-            # Write the tree content (skip XML declaration since we already wrote it)
-            tree.write(f, encoding='utf-8', xml_declaration=False)
+        # Write XML without DOCTYPE (UHF doesn't need it)
+        tree.write(filename, encoding='UTF-8', xml_declaration=True)
 
         logger.info(f'Successfully saved {filename}')
 
