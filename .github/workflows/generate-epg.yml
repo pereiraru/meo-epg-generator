@@ -9,33 +9,34 @@ on:
           generate-epg:
               runs-on: ubuntu-latest
 
-                      steps:
-                            - name: Checkout repository
-                                    uses: actions/checkout@v3
+                  steps:
+                        - name: Checkout repository
+                                uses: actions/checkout@v3
 
-                                                - name: Set up Python
-                                                        uses: actions/setup-python@v4
-                                                                with:
-                                                                          python-version: '3.11'
+                                      - name: Set up Python
+                                              uses: actions/setup-python@v4
+                                                      with:
+                                                                python-version: '3.11'
 
-                                                                                      - name: Install dependencies
-                                                                                              run: |
-                                                                                                        python -m pip install --upgrade pip
-                                                                                                                  pip install requests beautifulsoup4 lxml python-dateutil
-                                                                                                                        
-                                                                                                                              - name: Generate EPG
-                                                                                                                                      run: python scraper.py
-                                                                                                                                            
-                                                                                                                                                  - name: Upload EPG file
-                                                                                                                                                          if: always()
-                                                                                                                                                                  run: |
-                                                                                                                                                                            ls -lah *.xml || echo "No XML file found"
-                                                                                                                                                                                  
-                                                                                                                                                                                        - name: Commit and push
-                                                                                                                                                                                                run: |
-                                                                                                                                                                                                          git config --local user.email "action@github.com"
-                                                                                                                                                                                                                    git config --local user.name "GitHub Action"
-                                                                                                                                                                                                                              git add guide.xml || echo "No guide.xml to add"
-                                                                                                                                                                                                                                        git commit -m "Update EPG: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" || echo "No changes to commit"
-                                                                                                                                                                                                                                                  git push || echo "Nothing to push"
-                                                                                                                                                                                                                                                          continue-on-error: true
+                                                                      - name: Install dependencies
+                                                                              run: |
+                                                                                        python -m pip install --upgrade pip
+                                                                                                  pip install requests beautifulsoup4 lxml python-dateutil
+
+                                                                                                        - name: Generate EPG
+                                                                                                                run: python scraper.py
+                                                                                                                
+                                                                                                                      - name: Upload EPG file
+                                                                                                                              if: always()
+                                                                                                                                      run: |
+                                                                                                                                                ls -lah *.xml || echo "No XML file found"
+                                                                                                                                                
+                                                                                                                                                      - name: Commit and push
+                                                                                                                                                              if: always()
+                                                                                                                                                                      run: |
+                                                                                                                                                                                git config --local user.email "action@github.com"
+                                                                                                                                                                                          git config --local user.name "GitHub Action"
+                                                                                                                                                                                                    git add guide.xml || echo "No guide.xml to add"
+                                                                                                                                                                                                              git commit -m "Update EPG: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" || echo "No changes to commit"
+                                                                                                                                                                                                                        git push || echo "Nothing to push"
+                                                                                                                                                                                                                                continue-on-error: true
